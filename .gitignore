@@ -19,3 +19,8 @@ node_modules/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# pnpm
+.pnpm/
+.pnpm-debug.log
+.pnpm-store

@@ -1,0 +1,88 @@
+services:
+  app:
+    env_file: .env.docker
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    image: art-gallery-app:latest
+    environment:
+      - NODE_ENV=production
+      # Load sensitive settings from .env (with sensible fallbacks)
+      - DATABASE_URL=${DATABASE_URL:-postgres://payload:payloadpass@db:5432/art_gallery}
+      - PAYLOAD_SECRET=${PAYLOAD_SECRET:-changeme}
+      - PORT=${PORT:-3000}
+      - HOSTNAME=${HOSTNAME:-0.0.0.0}
+    # Host port is configurable via .env.docker HOST_PORT (defaults to 3000)
+    # ports:
+    #   - '${HOST_PORT:-3000}:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"] 
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - app_net
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+
+  db:
+    env_file: .env.docker
+    image: postgres:18
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-payload}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-payloadpass}
+      - POSTGRES_DB=${POSTGRES_DB:-art_gallery}
+    # For Postgres 18+ the image expects a top-level mount at /var/lib/postgresql
+    # so it can create versioned subdirectories (required for pg_upgrade handling).
+    volumes:
+      - db_data:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_net
+
+  cloudflared:
+    image: cloudflare/cloudflared:2024.6.0
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      # Provide either a Tunnel Token or mount a credentials file to /etc/cloudflared
+      - CLOUDFLARED_TUNNEL_TOKEN
+    env_file: .env.docker
+    # Default command uses the token to create a short-lived tunnel and forward to the app.
+    # If you prefer using a named tunnel with a credentials file, mount it at ./cloudflared and
+    # replace the command with: ["tunnel", "run", "--name", "my-tunnel-name"]
+    command:
+      [
+        'tunnel',
+        '--no-autoupdate',
+        'run',
+        '--token',
+        '${CLOUDFLARED_TUNNEL_TOKEN}',
+        '--url',
+        'http://app:3000'
+      ]
+    networks:
+      - app_net
+
+volumes:
+  db_data:
+
+networks:
+  app_net:
+    driver: bridge

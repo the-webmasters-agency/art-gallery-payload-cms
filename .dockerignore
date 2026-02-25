@@ -1,0 +1,35 @@
+# Ignore node modules, local build artifacts, editor files and secrets
+
+# Node modules
+node_modules
+
+# Next/Build output
+.next
+out
+dist
+build
+
+# Local env / secrets (don't include .env in build context)
+.env
+.env.local
+.env.*.local
+cloudflared/
+
+# Git and editor metadata
+.git
+.gitignore
+.vscode/
+.idea/
+.DS_Store
+
+# Logs, caches, coverage
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs
+*.log
+coverage
+.cache
+
+# OS junk
+Thumbs.db
